@@ -31,6 +31,7 @@ Requires: python36-paramiko
 Requires: epel-release
 Requires: python36-setuptools
 Requires: python36-defusedxml
+
 %endif
 
 
