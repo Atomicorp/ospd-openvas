@@ -27,7 +27,7 @@ build-el8-x86_64:
     - cp *.spec ~/rpmbuild/SPECS/
 
   script:
-    - (if [[ $CI_BUILD_REF_NAME == "master" ]]; then  gitlab-build.sh el7-x86_64 project.spec /mnt/repo/atomic-testing/centos/7/x86_64/ noasl; else  gitlab-build.sh el7-x86_64 project.spec /mnt/repo/atomic-bleeding/centos/7/x86_64/ noasl; fi )
+    - (if [[ $CI_BUILD_REF_NAME == "master" ]]; then  gitlab-build.sh el8-x86_64 project.spec /mnt/repo/atomic-testing/centos/8/x86_64/ noasl; else  gitlab-build.sh el8-x86_64 project.spec /mnt/repo/atomic-bleeding/centos/8/x86_64/ noasl; fi )
 
 
 
