@@ -31,10 +31,18 @@ Requires: python36-paramiko
 Requires: epel-release
 Requires: python36-setuptools
 Requires: python36-defusedxml
+%else
+Requires: python3-psutil
+# pip3 install redis
+Requires: python3-lxml
+Requires: python3-defusedxml
+Requires: python3-paramiko
+
 
 %endif
 
 
+Requires: 
 
 
 
