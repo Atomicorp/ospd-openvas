@@ -8,6 +8,7 @@ URL: http://www.openvas.org
 Source0: https://github.com/greenbone/ospd-openvas/archive/v%{version}.tar.gz
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-buildroot
 BuildArchitectures: noarch
+Patch0: 139.patch
 
 %if 0%{?fedora}
 BuildRequires: python3-devel >= 2.2.1
@@ -53,6 +54,8 @@ OSPd
 
 %prep
 %setup -q -n ospd-openvas-%{version}
+
+%patch0 -p1
 
 %build
 python3 setup.py build
