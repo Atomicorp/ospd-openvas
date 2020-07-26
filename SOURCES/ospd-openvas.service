@@ -1,0 +1,21 @@
+[Unit]
+Description=Job that runs the ospd-openvas daemon
+Documentation=man:gvm
+After=postgresql.service
+
+[Service]
+Type=simple
+User=gvm
+Group=gvm
+WorkingDirectory=/var/lib/gvm/
+PIDFile=/var/run/ospd/ospd-openvas.pid
+ExecStart=/usr/bin/ospd-openvas --pid-file /var/run/ospd/ospd-openvas.pid --unix-socket=/var/run/ospd/ospd.sock --log-file /var/log/gvm/ospd-scanner.log --lock-file-dir /var/run/ospd
+Restart=on-failure
+RestartSec=2min
+KillMode=process
+KillSignal=SIGINT
+GuessMainPID=no
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
