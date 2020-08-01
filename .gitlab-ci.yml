@@ -24,6 +24,7 @@ build-el8-x86_64:
     - rm -f ~/rpmbuild/SOURCES/*
     - git clone https://gitlab.dev.atomicorp.com/atomicrocketturtle/buildsys-tools
     - cp buildsys-tools/* ~/bin/
+    - cp SOURCES/* ~/rpmbuild/SOURCES/
     - cp *.spec ~/rpmbuild/SPECS/
 
   script:
@@ -41,6 +42,7 @@ build-fc32-x86_64:
     - git clone https://gitlab.dev.atomicorp.com/atomicrocketturtle/buildsys-tools
     - cp buildsys-tools/* ~/bin/
     - cp *.spec ~/rpmbuild/SPECS/
+    - cp SOURCES/* ~/rpmbuild/SOURCES/
 
   script:
     - (if [[ $CI_BUILD_REF_NAME == "master" ]]; then  gitlab-build.sh fc32-x86_64 project.spec /mnt/repo/atomic-testing/fedora/32/x86_64/ noasl; else  gitlab-build.sh fc32-x86_64 project.spec /mnt/repo/atomic-bleeding/fedora/32/x86_64/ noasl; fi )
