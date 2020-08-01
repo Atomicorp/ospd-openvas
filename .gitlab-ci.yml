@@ -9,7 +9,7 @@ stages:
 #    - cp mock/* ~/mock/
 #    - rm -f ~/rpmbuild/SOURCES/*
 #    - git clone https://gitlab.dev.atomicorp.com/atomicrocketturtle/buildsys-tools
-    - cp buildsys-tools/* ~/bin/
+#    - cp buildsys-tools/* ~/bin/
 ##    - cp *.spec ~/rpmbuild/SPECS/
 #
 #  script:
