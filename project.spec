@@ -7,6 +7,7 @@ Group: Networking/Mail
 URL: http://www.openvas.org
 Source0: https://github.com/greenbone/ospd-openvas/archive/v%{version}.tar.gz
 Source1: ospd-openvas.service
+Source2: tmpfile.ospd-openvas.conf
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-buildroot
 BuildArchitectures: noarch
 #AutoReq: no
@@ -71,6 +72,12 @@ python3 setup.py install --root=%{buildroot}
 mkdir -p $RPM_BUILD_ROOT%{_unitdir}
 mkdir -p $RPM_BUILD_ROOT/var/run/ospd/
 install -p -m 644 %{SOURCE1} $RPM_BUILD_ROOT%{_unitdir}/ospd-openvas.service
+%{__install} -d -m 0755 %{buildroot}%_tmpfilesdir/
+%{__install} -Dp -m0755 %{SOURCE2} %{buildroot}%_tmpfilesdir/ospd-openvas.conf
+
+%post
+%systemd_post %{name}.service
+/bin/systemd-tmpfiles --create %_tmpfilesdir/ospd-openvas.conf >/dev/null 2>&1 || :
 
 
 
@@ -85,6 +92,8 @@ rm -rf %{buildroot}
 /usr/lib/python*/site-packages/ospd_openvas*
 /usr/bin/ospd-openvas
 /usr/lib/systemd/system/ospd-openvas.service
+%_tmpfilesdir/ospd-openvas.conf
+
 
 
 %changelog
