@@ -63,11 +63,8 @@ BuildRequires: /usr/bin/easy_install
 #Requires: python3-paramiko
 
 
-# cant find packaging thing on el8, wtf
-#python36-devel-3.6.8-2.module_el8.1.0+245+c39af44f.x86_64 : Libraries and header files needed for Python development
-#no
-#/usr/bin/easy_install-3.6 no
-# Original was to use platform-python-3.6.8-23.el8.x86_64
+Requires: python3-pyparsing
+Requires: python3-cffi
 
 
 %description
