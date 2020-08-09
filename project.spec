@@ -82,7 +82,7 @@ python3 setup.py build
 mkdir -p $RPM_BUILD_ROOT%{_unitdir}
 mkdir -p $RPM_BUILD_ROOT/var/run/ospd/
 mkdir -p $RPM_BUILD_ROOT/opt
-install -p -m 644 %{SOURCE1} $RPM_BUILD_ROOT%{_unitdir}/ospd-openvas.service
+install -p -m 644 %{SOURCE1} $RPM_BUILD_ROOT/usr/lib/systemd/system/ospd-openvas.service
 %{__install} -d -m 0755 %{buildroot}%_tmpfilesdir/
 %{__install} -Dp -m0755 %{SOURCE2} %{buildroot}%_tmpfilesdir/ospd-openvas.conf
 pushd %{buildroot}/opt/
