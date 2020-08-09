@@ -82,9 +82,10 @@ python3 setup.py build
 mkdir -p $RPM_BUILD_ROOT%{_unitdir}
 mkdir -p $RPM_BUILD_ROOT/var/run/ospd/
 mkdir -p $RPM_BUILD_ROOT/opt
+mkdir -p $RPM_BUILD_ROOT/usr/lib/systemd/system/
 install -p -m 644 %{SOURCE1} $RPM_BUILD_ROOT/usr/lib/systemd/system/ospd-openvas.service
 %{__install} -d -m 0755 %{buildroot}%_tmpfilesdir/
-%{__install} -Dp -m0755 %{SOURCE2} %{buildroot}%_tmpfilesdir/ospd-openvas.conf
+%{__install} -Dp -m0755 %{SOURCE2} %{buildroot}/usr/lib/tmpfiles.d/ospd-openvas.conf
 pushd %{buildroot}/opt/
   tar xvf %{SOURCE100} 
 popd
@@ -106,9 +107,9 @@ rm -rf %{buildroot}
 #/usr/lib/python*/site-packages/ospd_openvas*
 #/usr/bin/ospd-openvas
 /usr/lib/systemd/system/ospd-openvas.service
-%_tmpfilesdir/ospd-openvas.conf
 /opt/atomicorp/bin/ospd-openvas
 /opt/atomicorp/lib/python*
+/usr/lib/tmpfiles.d/ospd-openvas.conf
 
 
 
