@@ -2,7 +2,7 @@
 
 Summary: OSPd-openvas
 Name: OSPd-openvas
-Version: 1.0.1
+Version: 20.8.0
 Release: RELEASE-AUTO%{?dist}.art
 License: GPLv2
 Group: Networking/Mail
@@ -33,13 +33,18 @@ BuildRequires: /usr/bin/easy_install
 %endif
 
 # Currently building this by hand outside the RPM
-# get ospd
-# get ospd-openvas
+# yum -y install wget python3 python3-devel gcc
+# wget https://github.com/greenbone/ospd/archive/v20.8.1.tar.gz
+# wget https://github.com/greenbone/ospd-openvas/archive/v20.8.0.tar.gz
+# tar xvf *
+# mkdir -p /opt/atomicorp/lib/python3.6/site-packages
 # export PYTHONPATH=/opt/atomicorp/lib/python3.6/site-packages
 # cd ospd-*
 # python3 setup.py install --prefix=/opt/atomicorp/
 # cd .. ; cd ospd-openvas*
 # python3 setup.py install --prefix=/opt/atomicorp/
+# cd /opt/
+# tar zcvf ospd-openvas-el8.tar.gz atomicorp/
 
 
 # Not all python36 dependencies are available
@@ -114,6 +119,9 @@ rm -rf %{buildroot}
 
 
 %changelog
+* Sun Aug 167 2020 Scott R. Shinn <scott@atomicorp.com> - 20.8.0-RELEASE-AUTO
+- Update to 20.8.0
+
 * Sun Jun 7 2020 Scott R. Shinn <scott@atomicorp.com> - 1.0.1
 - Initialize
 
