@@ -119,7 +119,7 @@ rm -rf %{buildroot}
 
 
 %changelog
-* Sun Aug 167 2020 Scott R. Shinn <scott@atomicorp.com> - 20.8.0-RELEASE-AUTO
+* Sun Aug 16 2020 Scott R. Shinn <scott@atomicorp.com> - 20.8.0-RELEASE-AUTO
 - Update to 20.8.0
 
 * Sun Jun 7 2020 Scott R. Shinn <scott@atomicorp.com> - 1.0.1
