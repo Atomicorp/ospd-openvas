@@ -1,20 +1,6 @@
 stages:
   - build
 
-#build-el7-x86_64:
-#  stage: build
-#  before_script:
-#    - mkdir -p ~/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
-#    - mkdir -p ~/mock
-#    - cp mock/* ~/mock/
-#    - rm -f ~/rpmbuild/SOURCES/*
-#    - git clone https://gitlab.dev.atomicorp.com/atomicrocketturtle/buildsys-tools
-#    - cp buildsys-tools/* ~/bin/
-##    - cp *.spec ~/rpmbuild/SPECS/
-#
-#  script:
-#    - (if [[ $CI_BUILD_REF_NAME == "master" ]]; then  gitlab-build.sh el7-x86_64 project.spec /mnt/repo/atomic-testing/centos/7/x86_64/ noasl; else  gitlab-build.sh el7-x86_64 project.spec /mnt/repo/atomic-bleeding/centos/7/x86_64/ noasl; fi )
-#
 build-el8-x86_64:
   stage: build
   before_script:
