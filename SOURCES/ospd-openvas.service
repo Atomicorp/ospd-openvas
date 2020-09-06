@@ -10,7 +10,7 @@ Group=gvm
 WorkingDirectory=/var/lib/gvm/
 Environment=PYTHONPATH=/opt/atomicorp/lib/python3.6/site-packages
 PIDFile=/var/run/ospd/ospd-openvas.pid
-ExecStart=/opt/atomicorp/bin/ospd-openvas --pid-file /var/run/ospd/ospd-openvas.pid --unix-socket=/var/run/ospd/ospd.sock --log-file /var/log/gvm/ospd-scanner.log --lock-file-dir /var/run/ospd
+ExecStart=/opt/atomicorp/bin/ospd-openvas --pid-file /var/run/ospd/ospd-openvas.pid --unix-socket=/var/run/ospd/ospd.sock --log-file /var/log/gvm/ospd-scanner.log --lock-file-dir /var/run/gvm/
 Restart=on-failure
 RestartSec=2min
 KillMode=process
