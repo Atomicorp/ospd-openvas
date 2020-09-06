@@ -11,6 +11,7 @@ Source0: https://github.com/greenbone/ospd-openvas/archive/v%{version}.tar.gz
 Source1: ospd-openvas.service
 Source2: tmpfile.ospd-openvas.conf
 Source100: ospd-openvas-el8.tar.gz
+Source101: ospd-openvas-fc32.tar.gz
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-buildroot
 #BuildArchitectures: noarch
 #AutoReq: no
@@ -33,13 +34,13 @@ BuildRequires: /usr/bin/easy_install
 %endif
 
 # Currently building this by hand outside the RPM
-# yum -y install wget python3 python3-devel gcc
-# wget https://github.com/greenbone/ospd/archive/v20.8.1.tar.gz
-# wget https://github.com/greenbone/ospd-openvas/archive/v20.8.0.tar.gz
-# tar xvf *
+# yum -y install wget python3 python3-devel gcc tar
+# wget https://github.com/greenbone/ospd/archive/v20.8.1.tar.gz ; tar xvf v20.8.1.tar.gz
+# wget https://github.com/greenbone/ospd-openvas/archive/v20.8.0.tar.gz ; tar xvf v20.8.0.tar.gz 
 # mkdir -p /opt/atomicorp/lib/python3.6/site-packages
 # export PYTHONPATH=/opt/atomicorp/lib/python3.6/site-packages
-# cd ospd-*
+# export PYTHONPATH=/opt/atomicorp/lib/python3.8/site-packages
+# cd ospd-20*
 # python3 setup.py install --prefix=/opt/atomicorp/
 # cd .. ; cd ospd-openvas*
 # python3 setup.py install --prefix=/opt/atomicorp/
@@ -92,7 +93,13 @@ install -p -m 644 %{SOURCE1} $RPM_BUILD_ROOT/usr/lib/systemd/system/ospd-openvas
 %{__install} -d -m 0755 %{buildroot}%_tmpfilesdir/
 %{__install} -Dp -m0755 %{SOURCE2} %{buildroot}/usr/lib/tmpfiles.d/ospd-openvas.conf
 pushd %{buildroot}/opt/
-  tar xvf %{SOURCE100} 
+%if 0%{?rhel} >= 7
+  	tar xvf %{SOURCE100} 
+%else
+  	tar xvf %{SOURCE101} 
+	sed -i "s/python3.6/python3.8/g"  $RPM_BUILD_ROOT/usr/lib/systemd/system/ospd-openvas.service
+	
+%endif
 popd
 
 %post
