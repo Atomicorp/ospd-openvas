@@ -93,7 +93,7 @@ install -p -m 644 %{SOURCE1} $RPM_BUILD_ROOT/usr/lib/systemd/system/ospd-openvas
 %{__install} -d -m 0755 %{buildroot}%_tmpfilesdir/
 %{__install} -Dp -m0755 %{SOURCE2} %{buildroot}/usr/lib/tmpfiles.d/ospd-openvas.conf
 pushd %{buildroot}/opt/
-%if 0%{?rhel} >= 7
+%if 0%{?rhel} == 8
   	tar xvf %{SOURCE100} 
 %else
   	tar xvf %{SOURCE101} 
