@@ -1,0 +1,502 @@
+From 38c93b52bd31e6e92427e66aa0ec56748f4b59ff Mon Sep 17 00:00:00 2001
+From: Juan Jose Nicola <juan.nicola@greenbone.net>
+Date: Thu, 10 Sep 2020 12:18:47 +0200
+Subject: [PATCH 1/6] Apply alive test preferences if one method was selected.
+ The selected alive test option overwrite the default settings. The issue was
+ that the preferences where added twice, but always the default ones were used
+ because were found first.
+
+---
+ CHANGELOG.md                      |  1 +
+ ospd_openvas/daemon.py            |  5 ++
+ ospd_openvas/preferencehandler.py | 86 ++++++++++++++-----------------
+ 3 files changed, 46 insertions(+), 46 deletions(-)
+
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index 795b71d..5a9de4c 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
+ ### Fixed
+ - Fix nvticache name when for stable version from sources. [#317](https://github.com/greenbone/ospd-openvas/pull/317)
+ - Fix stop scan during preferences handling, before spawining OpenVAS. [#332](https://github.com/greenbone/ospd-openvas/pull/332)
++- Fix alive test preferences when a non default method is selected. [#334](https://github.com/greenbone/ospd-openvas/pull/334)
+ 
+ [20.8.1]: https://github.com/greenbone/ospd-openvas/compare/v20.8.0...ospd-openvas-20.08
+ 
+diff --git a/ospd_openvas/daemon.py b/ospd_openvas/daemon.py
+index 71183f1..72f5fa5 100644
+--- a/ospd_openvas/daemon.py
++++ b/ospd_openvas/daemon.py
+@@ -1249,6 +1249,11 @@ def exec_scan(self, scan_id: str):
+         scan_prefs.prepare_scan_params_for_openvas(OSPD_PARAMS)
+         scan_prefs.prepare_reverse_lookup_opt_for_openvas()
+         scan_prefs.prepare_alive_test_option_for_openvas()
++
++        # VT preferences are stored after all preferences have been processed,
++        # since alive tests preferences have to be able to overwrite default
++        # preferences of ping_host.nasl for the classic method.
++        scan_prefs.prepare_nvt_preferences()
+         scan_prefs.prepare_boreas_alive_test()
+ 
+         # Release memory used for scan preferences.
+diff --git a/ospd_openvas/preferencehandler.py b/ospd_openvas/preferencehandler.py
+index 12bd93c..1c55c13 100644
+--- a/ospd_openvas/preferencehandler.py
++++ b/ospd_openvas/preferencehandler.py
+@@ -83,6 +83,7 @@ def __init__(
+         self._openvas_scan_id = None
+ 
+         self._target_options = None
++        self._nvts_params = None
+ 
+         self.nvti = nvticache
+ 
+@@ -255,23 +256,17 @@ def _process_vts(
+         return vts_list, vts_params
+ 
+     def prepare_plugins_for_openvas(self) -> bool:
+-        """Get the plugin list to be launched from the Scan Collection
+-        and prepare the vts preferences. Store the data in the kb.
++        """Get the plugin list and it preferences from the Scan Collection.
++        The plugin list is inmediately stored in the kb.
+         """
+         nvts = self.scan_collection.get_vts(self.scan_id)
+         if nvts:
+-            nvts_list, nvts_params = self._process_vts(nvts)
++            nvts_list, self._nvts_params = self._process_vts(nvts)
+             # Add nvts list
+             separ = ';'
+             plugin_list = 'plugin_set|||%s' % separ.join(nvts_list)
+             self.kbdb.add_scan_preferences(self._openvas_scan_id, [plugin_list])
+ 
+-            # Add nvts parameters
+-            for key, val in nvts_params.items():
+-                item = '%s|||%s' % (key, val)
+-                self.kbdb.add_scan_preferences(self._openvas_scan_id, [item])
+-
+-            nvts_params = None
+             nvts_list = None
+             item = None
+             plugin_list = None
+@@ -281,6 +276,15 @@ def prepare_plugins_for_openvas(self) -> bool:
+ 
+         return False
+ 
++    def prepare_nvt_preferences(self):
++        """Prepare the vts preferences. Store the data in the kb.
++        Store the data in the kb.
++        """
++
++        for key, val in self._nvts_params.items():
++            item = '%s|||%s' % (key, val)
++            self.kbdb.add_scan_preferences(self._openvas_scan_id, [item])
++
+     @staticmethod
+     def build_alive_test_opt_as_prefs(
+         target_options: Dict[str, str]
+@@ -293,7 +297,8 @@ def build_alive_test_opt_as_prefs(
+             A list with the target options related to alive test method
+             in string format to be added to the redis KB.
+         """
+-        target_opt_prefs_list = []
++        target_opt_prefs_list = {}
++
+         if target_options and target_options.get('alive_test'):
+             try:
+                 alive_test = int(target_options.get('alive_test'))
+@@ -305,6 +310,8 @@ def build_alive_test_opt_as_prefs(
+                 )
+                 return target_opt_prefs_list
+ 
++            # No alive test or wrong value, uses the default
++            # preferences sent by the client.
+             if alive_test < 1 or alive_test > 31:
+                 return target_opt_prefs_list
+ 
+@@ -315,12 +322,9 @@ def build_alive_test_opt_as_prefs(
+                 value = "yes"
+             else:
+                 value = "no"
+-            target_opt_prefs_list.append(
+-                OID_PING_HOST
+-                + ':1:checkbox:'
+-                + 'Do a TCP ping|||'
+-                + '{0}'.format(value)
+-            )
++            target_opt_prefs_list[
++                OID_PING_HOST + ':1:checkbox:' + 'Do a TCP ping'
++            ] = value
+ 
+             if (
+                 alive_test & AliveTest.ALIVE_TEST_TCP_SYN_SERVICE
+@@ -329,12 +333,11 @@ def build_alive_test_opt_as_prefs(
+                 value = "yes"
+             else:
+                 value = "no"
+-            target_opt_prefs_list.append(
++            target_opt_prefs_list[
+                 OID_PING_HOST
+                 + ':2:checkbox:'
+-                + 'TCP ping tries also TCP-SYN ping|||'
+-                + '{0}'.format(value)
+-            )
++                + 'TCP ping tries also TCP-SYN ping'
++            ] = value
+ 
+             if (alive_test & AliveTest.ALIVE_TEST_TCP_SYN_SERVICE) and not (
+                 alive_test & AliveTest.ALIVE_TEST_TCP_ACK_SERVICE
+@@ -342,51 +345,44 @@ def build_alive_test_opt_as_prefs(
+                 value = "yes"
+             else:
+                 value = "no"
+-            target_opt_prefs_list.append(
++            target_opt_prefs_list[
+                 OID_PING_HOST
+                 + ':7:checkbox:'
+-                + 'TCP ping tries only TCP-SYN ping|||'
+-                + '{0}'.format(value)
+-            )
++                + 'TCP ping tries only TCP-SYN ping'
++            ] = value
+ 
+             if alive_test & AliveTest.ALIVE_TEST_ICMP:
+                 value = "yes"
+             else:
+                 value = "no"
+-            target_opt_prefs_list.append(
+-                OID_PING_HOST
+-                + ':3:checkbox:'
+-                + 'Do an ICMP ping|||'
+-                + '{0}'.format(value)
+-            )
++            target_opt_prefs_list[
++                OID_PING_HOST + ':3:checkbox:' + 'Do an ICMP ping'
++            ] = value
+ 
+             if alive_test & AliveTest.ALIVE_TEST_ARP:
+                 value = "yes"
+             else:
+                 value = "no"
+-            target_opt_prefs_list.append(
+-                OID_PING_HOST
+-                + ':4:checkbox:'
+-                + 'Use ARP|||'
+-                + '{0}'.format(value)
+-            )
++            target_opt_prefs_list[
++                OID_PING_HOST + ':4:checkbox:' + 'Use ARP'
++            ] = value
+ 
+             if alive_test & AliveTest.ALIVE_TEST_CONSIDER_ALIVE:
+                 value = "no"
+             else:
+                 value = "yes"
+-            target_opt_prefs_list.append(
++            target_opt_prefs_list[
+                 OID_PING_HOST
+                 + ':5:checkbox:'
+-                + 'Mark unrechable Hosts as dead (not scanning)|||'
+-                + '{0}'.format(value)
+-            )
++                + 'Mark unrechable Hosts as dead (not scanning)'
++            ] = value
+ 
+             # Also select a method, otherwise Ping Host logs a warning.
+             if alive_test == AliveTest.ALIVE_TEST_CONSIDER_ALIVE:
+-                target_opt_prefs_list.append(
+-                    OID_PING_HOST + ':1:checkbox:' + 'Do a TCP ping|||yes'
+-                )
++                target_opt_prefs_list[
++                    OID_PING_HOST + ':1:checkbox:' + 'Do a TCP ping'
++                ] = 'yes'
++
+         return target_opt_prefs_list
+ 
+     def prepare_alive_test_option_for_openvas(self):
+@@ -396,9 +392,7 @@ def prepare_alive_test_option_for_openvas(self):
+             alive_test_opt = self.build_alive_test_opt_as_prefs(
+                 self.target_options
+             )
+-            self.kbdb.add_scan_preferences(
+-                self._openvas_scan_id, alive_test_opt
+-            )
++            self._nvts_params.update(alive_test_opt)
+ 
+     def prepare_boreas_alive_test(self):
+         """Set alive_test for Boreas if boreas scanner config
+
+From fc839006418e7d989cd9d37527fc2d800d691326 Mon Sep 17 00:00:00 2001
+From: Juan Jose Nicola <juan.nicola@greenbone.net>
+Date: Thu, 10 Sep 2020 14:18:39 +0200
+Subject: [PATCH 2/6] Add all preferences in one call
+
+---
+ ospd_openvas/preferencehandler.py | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/ospd_openvas/preferencehandler.py b/ospd_openvas/preferencehandler.py
+index 1c55c13..1af85e7 100644
+--- a/ospd_openvas/preferencehandler.py
++++ b/ospd_openvas/preferencehandler.py
+@@ -281,9 +281,10 @@ def prepare_nvt_preferences(self):
+         Store the data in the kb.
+         """
+ 
++        items_list = []
+         for key, val in self._nvts_params.items():
+-            item = '%s|||%s' % (key, val)
+-            self.kbdb.add_scan_preferences(self._openvas_scan_id, [item])
++            items_list.append('%s|||%s' % (key, val))
++        self.kbdb.add_scan_preferences(self._openvas_scan_id, items_list)
+ 
+     @staticmethod
+     def build_alive_test_opt_as_prefs(
+
+From 968b4b188106e9910c78157b5d646d0c65b43f32 Mon Sep 17 00:00:00 2001
+From: Juan Jose Nicola <juan.nicola@greenbone.net>
+Date: Thu, 10 Sep 2020 14:18:53 +0200
+Subject: [PATCH 3/6] Fix tests
+
+---
+ tests/test_preferencehandler.py | 51 ++++++++++++++++++++++-----------
+ 1 file changed, 35 insertions(+), 16 deletions(-)
+
+diff --git a/tests/test_preferencehandler.py b/tests/test_preferencehandler.py
+index bfb706a..9650a9f 100644
+--- a/tests/test_preferencehandler.py
++++ b/tests/test_preferencehandler.py
+@@ -200,19 +200,20 @@ def test_build_alive_test_opt_empty(self):
+         p = PreferenceHandler('1234-1234', None, w.scan_collection, None)
+         ret = p.build_alive_test_opt_as_prefs(target_options_dict)
+ 
+-        self.assertEqual(ret, [])
++        self.assertEqual(ret, {})
+ 
+     def test_build_alive_test_opt(self):
+         w = DummyDaemon()
+ 
+-        alive_test_out = [
+-            "1.3.6.1.4.1.25623.1.0.100315:1:checkbox:Do a TCP ping|||no",
+-            "1.3.6.1.4.1.25623.1.0.100315:2:checkbox:TCP ping tries also TCP-SYN ping|||no",
+-            "1.3.6.1.4.1.25623.1.0.100315:7:checkbox:TCP ping tries only TCP-SYN ping|||no",
+-            "1.3.6.1.4.1.25623.1.0.100315:3:checkbox:Do an ICMP ping|||yes",
+-            "1.3.6.1.4.1.25623.1.0.100315:4:checkbox:Use ARP|||no",
+-            "1.3.6.1.4.1.25623.1.0.100315:5:checkbox:Mark unrechable Hosts as dead (not scanning)|||yes",
+-        ]
++        alive_test_out = {
++            "1.3.6.1.4.1.25623.1.0.100315:1:checkbox:Do a TCP ping": "no",
++            "1.3.6.1.4.1.25623.1.0.100315:2:checkbox:TCP ping tries also TCP-SYN ping": "no",
++            "1.3.6.1.4.1.25623.1.0.100315:7:checkbox:TCP ping tries only TCP-SYN ping": "no",
++            "1.3.6.1.4.1.25623.1.0.100315:3:checkbox:Do an ICMP ping": "yes",
++            "1.3.6.1.4.1.25623.1.0.100315:4:checkbox:Use ARP": "no",
++            "1.3.6.1.4.1.25623.1.0.100315:5:checkbox:Mark unrechable Hosts as dead (not scanning)": "yes",
++        }
++
+         target_options_dict = {'alive_test': '2'}
+         p = PreferenceHandler('1234-1234', None, w.scan_collection, None)
+         ret = p.build_alive_test_opt_as_prefs(target_options_dict)
+@@ -242,7 +243,8 @@ def test_set_target(self, mock_kb):
+         p.prepare_target_for_openvas()
+ 
+         p.kbdb.add_scan_preferences.assert_called_with(
+-            p._openvas_scan_id, ['TARGET|||192.168.0.1'],
++            p._openvas_scan_id,
++            ['TARGET|||192.168.0.1'],
+         )
+ 
+     @patch('ospd_openvas.db.KbDB')
+@@ -257,7 +259,8 @@ def test_set_ports(self, mock_kb):
+         p.prepare_ports_for_openvas()
+ 
+         p.kbdb.add_scan_preferences.assert_called_with(
+-            p._openvas_scan_id, ['port_range|||80,443'],
++            p._openvas_scan_id,
++            ['port_range|||80,443'],
+         )
+ 
+     @patch('ospd_openvas.db.KbDB')
+@@ -270,7 +273,8 @@ def test_set_main_kbindex(self, mock_kb):
+         p.prepare_main_kbindex_for_openvas()
+ 
+         p.kbdb.add_scan_preferences.assert_called_with(
+-            p._openvas_scan_id, ['ov_maindbid|||2'],
++            p._openvas_scan_id,
++            ['ov_maindbid|||2'],
+         )
+ 
+     @patch('ospd_openvas.db.KbDB')
+@@ -363,7 +367,8 @@ def test_set_host_options(self, mock_kb):
+         p.prepare_host_options_for_openvas()
+ 
+         p.kbdb.add_scan_preferences.assert_called_with(
+-            p._openvas_scan_id, ['exclude_hosts|||192.168.0.1'],
++            p._openvas_scan_id,
++            ['exclude_hosts|||192.168.0.1'],
+         )
+ 
+     @patch('ospd_openvas.db.KbDB')
+@@ -422,7 +427,10 @@ def test_set_reverse_lookup_opt(self, mock_kb):
+ 
+         p.kbdb.add_scan_preferences.assert_called_with(
+             p._openvas_scan_id,
+-            ['reverse_lookup_only|||yes', 'reverse_lookup_unify|||no',],
++            [
++                'reverse_lookup_only|||yes',
++                'reverse_lookup_unify|||no',
++            ],
+         )
+ 
+     @patch('ospd_openvas.db.KbDB')
+@@ -537,6 +545,15 @@ def test_set_alive_pinghost(self, mock_kb):
+             "1.3.6.1.4.1.25623.1.0.100315:5:checkbox:Mark unrechable Hosts as dead (not scanning)|||yes",
+         ]
+ 
++        alive_test_preferences = {
++            "1.3.6.1.4.1.25623.1.0.100315:1:checkbox:Do a TCP ping": "no",
++            "1.3.6.1.4.1.25623.1.0.100315:2:checkbox:TCP ping tries also TCP-SYN ping": "no",
++            "1.3.6.1.4.1.25623.1.0.100315:7:checkbox:TCP ping tries only TCP-SYN ping": "no",
++            "1.3.6.1.4.1.25623.1.0.100315:3:checkbox:Do an ICMP ping": "yes",
++            "1.3.6.1.4.1.25623.1.0.100315:4:checkbox:Use ARP": "no",
++            "1.3.6.1.4.1.25623.1.0.100315:5:checkbox:Mark unrechable Hosts as dead (not scanning)": "yes",
++        }
++
+         t_opt = {'alive_test': 2}
+         w.scan_collection.get_target_options = MagicMock(return_value=t_opt)
+ 
+@@ -544,11 +561,13 @@ def test_set_alive_pinghost(self, mock_kb):
+ 
+         with patch.object(Openvas, 'get_settings', return_value=ov_setting):
+             p = PreferenceHandler('1234-1234', mock_kb, w.scan_collection, None)
+-
++            p._nvts_params = {}
+             p._openvas_scan_id = '456-789'
+             p.kbdb.add_scan_preferences = MagicMock()
+             p.prepare_alive_test_option_for_openvas()
++            p.prepare_nvt_preferences()
+ 
+             p.kbdb.add_scan_preferences.assert_called_with(
+-                p._openvas_scan_id, alive_test_out,
++                p._openvas_scan_id,
++                alive_test_out,
+             )
+
+From 7eef9a1e546cc4fe7edd369d6838291f8a4e02ec Mon Sep 17 00:00:00 2001
+From: Juan Jose Nicola <juan.nicola@greenbone.net>
+Date: Thu, 10 Sep 2020 14:20:50 +0200
+Subject: [PATCH 4/6] Fix pylint
+
+---
+ ospd_openvas/preferencehandler.py | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/ospd_openvas/preferencehandler.py b/ospd_openvas/preferencehandler.py
+index 1af85e7..21efda4 100644
+--- a/ospd_openvas/preferencehandler.py
++++ b/ospd_openvas/preferencehandler.py
+@@ -268,7 +268,6 @@ def prepare_plugins_for_openvas(self) -> bool:
+             self.kbdb.add_scan_preferences(self._openvas_scan_id, [plugin_list])
+ 
+             nvts_list = None
+-            item = None
+             plugin_list = None
+             nvts = None
+ 
+
+From a774bedc994e81804b728e7af1115849e5160b27 Mon Sep 17 00:00:00 2001
+From: Juan Jose Nicola <juan.nicola@greenbone.net>
+Date: Thu, 10 Sep 2020 14:32:22 +0200
+Subject: [PATCH 5/6] Make test compatible with py3.5 and more tests
+
+---
+ tests/test_preferencehandler.py | 40 +++++++++++++++++++++------------
+ 1 file changed, 26 insertions(+), 14 deletions(-)
+
+diff --git a/tests/test_preferencehandler.py b/tests/test_preferencehandler.py
+index 9650a9f..3da8a15 100644
+--- a/tests/test_preferencehandler.py
++++ b/tests/test_preferencehandler.py
+@@ -21,6 +21,7 @@
+ 
+ from unittest import TestCase
+ from unittest.mock import call, patch, Mock, MagicMock
++from collections import OrderedDict
+ 
+ from ospd.vts import Vts
+ 
+@@ -545,15 +546,6 @@ def test_set_alive_pinghost(self, mock_kb):
+             "1.3.6.1.4.1.25623.1.0.100315:5:checkbox:Mark unrechable Hosts as dead (not scanning)|||yes",
+         ]
+ 
+-        alive_test_preferences = {
+-            "1.3.6.1.4.1.25623.1.0.100315:1:checkbox:Do a TCP ping": "no",
+-            "1.3.6.1.4.1.25623.1.0.100315:2:checkbox:TCP ping tries also TCP-SYN ping": "no",
+-            "1.3.6.1.4.1.25623.1.0.100315:7:checkbox:TCP ping tries only TCP-SYN ping": "no",
+-            "1.3.6.1.4.1.25623.1.0.100315:3:checkbox:Do an ICMP ping": "yes",
+-            "1.3.6.1.4.1.25623.1.0.100315:4:checkbox:Use ARP": "no",
+-            "1.3.6.1.4.1.25623.1.0.100315:5:checkbox:Mark unrechable Hosts as dead (not scanning)": "yes",
+-        }
+-
+         t_opt = {'alive_test': 2}
+         w.scan_collection.get_target_options = MagicMock(return_value=t_opt)
+ 
+@@ -565,9 +557,29 @@ def test_set_alive_pinghost(self, mock_kb):
+             p._openvas_scan_id = '456-789'
+             p.kbdb.add_scan_preferences = MagicMock()
+             p.prepare_alive_test_option_for_openvas()
+-            p.prepare_nvt_preferences()
+ 
+-            p.kbdb.add_scan_preferences.assert_called_with(
+-                p._openvas_scan_id,
+-                alive_test_out,
+-            )
++            for key, value in p._nvts_params.items():
++                self.assertTrue(
++                    "{0}|||{1}".format(key, value) in alive_test_out
++                )
++
++    @patch('ospd_openvas.db.KbDB')
++    def test_prepare_nvt_prefs(self, mock_kb):
++        w = DummyDaemon()
++
++        alive_test_out = [
++            "1.3.6.1.4.1.25623.1.0.100315:1:checkbox:Do a TCP ping|||no"
++        ]
++
++        p = PreferenceHandler('1234-1234', mock_kb, w.scan_collection, None)
++        p._nvts_params = {
++            "1.3.6.1.4.1.25623.1.0.100315:1:checkbox:Do a TCP ping": "no"
++        }
++        p._openvas_scan_id = '456-789'
++        p.kbdb.add_scan_preferences = MagicMock()
++        p.prepare_nvt_preferences()
++
++        p.kbdb.add_scan_preferences.assert_called_with(
++            p._openvas_scan_id,
++            alive_test_out,
++        )
+
+From eed06269a84ac0c6d8ca7321b03b3f4138b140a8 Mon Sep 17 00:00:00 2001
+From: Juan Jose Nicola <juan.nicola@greenbone.net>
+Date: Thu, 10 Sep 2020 16:01:21 +0200
+Subject: [PATCH 6/6] fix docstring
+
+---
+ ospd_openvas/preferencehandler.py | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
+
+diff --git a/ospd_openvas/preferencehandler.py b/ospd_openvas/preferencehandler.py
+index 21efda4..fc00b12 100644
+--- a/ospd_openvas/preferencehandler.py
++++ b/ospd_openvas/preferencehandler.py
+@@ -276,9 +276,7 @@ def prepare_plugins_for_openvas(self) -> bool:
+         return False
+ 
+     def prepare_nvt_preferences(self):
+-        """Prepare the vts preferences. Store the data in the kb.
+-        Store the data in the kb.
+-        """
++        """Prepare the vts preferences. Store the data in the kb."""
+ 
+         items_list = []
+         for key, val in self._nvts_params.items():

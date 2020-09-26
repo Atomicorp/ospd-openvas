@@ -12,6 +12,7 @@ Source1: ospd-openvas.service
 Source2: tmpfile.ospd-openvas.conf
 Source100: ospd-openvas-el8.tar.gz
 Source101: ospd-openvas-fc32.tar.gz
+Patch0: 334.patch
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-buildroot
 #BuildArchitectures: noarch
 #AutoReq: no
@@ -78,6 +79,7 @@ OSPd
 
 %prep
 %setup -q -n ospd-openvas-%{version}
+%patch0 -p1
 
 
 %build
@@ -126,6 +128,9 @@ rm -rf %{buildroot}
 
 
 %changelog
+* Sat Sep 26 2020 Scott R. Shinn <scott@atomicorp.com> - 20.8.0-RELEASE-AUTO
+- Closes GVM issue https://github.com/Atomicorp/gvm/issues/31
+
 * Sun Aug 16 2020 Scott R. Shinn <scott@atomicorp.com> - 20.8.0-RELEASE-AUTO
 - Update to 20.8.0
 
